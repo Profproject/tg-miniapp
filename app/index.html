@@ -1,23 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Premium Mini App</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <script defer src="/static/script.js"></script>
+<meta charset="UTF-8">
+<title>Subscribo</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
 
-<div class="app">
-  <h1>✨ Premium Access</h1>
-  <p class="subtitle">High-end Telegram Mini App</p>
-
-  <button class="neon-btn" id="activate">
-    Activate Access
-  </button>
-
-  <div class="status" id="status"></div>
+<div class="card" id="card">
+  <h1>✨ Subscribo</h1>
+  <p id="status">Checking access…</p>
+  <button id="action" onclick="activate()">Activate Access</button>
 </div>
 
+<script src="/static/script.js"></script>
 </body>
 </html>
+
