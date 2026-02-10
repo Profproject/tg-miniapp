@@ -7,7 +7,8 @@ API_URL = f"https://api.telegram.org/bot{TOKEN}"
 
 app = FastAPI()
 
-@app.post("/")
+
+@app.post("/webhook")
 async def telegram_webhook(request: Request):
     data = await request.json()
 
