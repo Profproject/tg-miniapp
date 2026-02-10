@@ -1,14 +1,32 @@
-const btn = document.getElementById("activate");
-const status = document.getElementById("status");
+const tg = window.Telegram.WebApp;
+tg.expand();
 
-btn.addEventListener("click", () => {
-  btn.innerText = "Processing...";
-  btn.style.opacity = "0.7";
+const userId = tg.initDataUnsafe.user.id;
 
-  setTimeout(() => {
-    status.innerText = "✅ Access activated";
-    btn.innerText = "Activated";
-    btn.disabled = true;
-    btn.style.opacity = "0.5";
-  }, 1200);
-});
+async function checkStatus() {
+  const res = await fetch("/api/status", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({user_id: userId})
+  });
+  const data = await res.json();
+
+  if (data.premium) {
+    document.getElementById("status").innerText = "✅ Premium active";
+    document.getElementById("action").innerText = "Access Granted";
+    document.getElementById("action").disabled = true;
+  } else {
+    document.getElementById("status").innerText = "🔒 Free access";
+  }
+}
+
+async function activate() {
+  await fetch("/api/activate", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({user_id: userId})
+  });
+  checkStatus();
+}
+
+checkStatus();
