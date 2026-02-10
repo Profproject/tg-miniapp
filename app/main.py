@@ -1,19 +1,25 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 import requests
 import os
 
+app = FastAPI()
+
+# === CONFIG ===
 TOKEN = os.getenv("BOT_TOKEN")
 API_URL = f"https://api.telegram.org/bot{TOKEN}"
 
-app = FastAPI()
+# === STATIC FILES ===
+app.mount("/static", StaticFiles(directory="app"), name="static")
 
-# 👉 Главная страница Mini App
-@app.get("/")
-def serve_app():
-    return FileResponse("app/index.html")
+# === MAIN MINI APP PAGE ===
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    with open("app/index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
-# 👉 Webhook от Telegram
+# === TELEGRAM WEBHOOK ===
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     data = await request.json()
@@ -30,11 +36,11 @@ async def telegram_webhook(request: Request):
             f"{API_URL}/sendMessage",
             json={
                 "chat_id": chat_id,
-                "text": "Открой мини-приложение 👇",
+                "text": "🚀 Open premium mini app",
                 "reply_markup": {
                     "inline_keyboard": [[
                         {
-                            "text": "🚀 Open Mini App",
+                            "text": "✨ Open Mini App",
                             "web_app": {
                                 "url": "https://tg-miniapp-iggw.onrender.com"
                             }
