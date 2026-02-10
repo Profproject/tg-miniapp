@@ -1,29 +1,39 @@
-import os
 from fastapi import FastAPI, Request
 import requests
+import os
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+TOKEN = os.getenv("BOT_TOKEN")
+API_URL = f"https://api.telegram.org/bot{TOKEN}"
 
 app = FastAPI()
 
-@app.get("/")
-def health():
-    return {"status": "ok"}
-
-@app.post("/webhook")
-async def webhook(request: Request):
+@app.post("/")
+async def telegram_webhook(request: Request):
     data = await request.json()
 
-    if "message" in data:
-        chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text", "")
+    if "message" not in data:
+        return {"ok": True}
 
+    message = data["message"]
+    chat_id = message["chat"]["id"]
+    text = message.get("text", "")
+
+    if text.startswith("/start"):
         requests.post(
             f"{API_URL}/sendMessage",
             json={
                 "chat_id": chat_id,
-                "text": f"Ты написал: {text}"
+                "text": "Открой мини-приложение 👇",
+                "reply_markup": {
+                    "inline_keyboard": [[
+                        {
+                            "text": "🚀 Open Mini App",
+                            "web_app": {
+                                "url": "https://tg-miniapp-iggw.onrender.com"
+                            }
+                        }
+                    ]]
+                }
             }
         )
 
