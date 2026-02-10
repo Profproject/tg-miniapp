@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 import requests
 import os
 
@@ -7,7 +8,12 @@ API_URL = f"https://api.telegram.org/bot{TOKEN}"
 
 app = FastAPI()
 
+# 👉 Главная страница Mini App
+@app.get("/")
+def serve_app():
+    return FileResponse("app/index.html")
 
+# 👉 Webhook от Telegram
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     data = await request.json()
