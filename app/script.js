@@ -1,32 +1,45 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-const userId = tg.initDataUnsafe.user?.id || Math.floor(Math.random()*100000);
+let userId = null;
 
-async function loadStatus(){
-  const res = await fetch("/api/status",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({ user_id:userId })
-  });
-
-  const data = await res.json();
-
-  document.getElementById("plan").innerText =
-    data.active ? "🔥 Plan: PRO" : "🆓 Free Plan";
-
-  document.getElementById("expires").innerText =
-    data.active ? "Expires: "+data.expires_at : "";
+if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+    userId = tg.initDataUnsafe.user.id;
+} else {
+    document.getElementById("status").innerText = "Telegram session error";
+    document.getElementById("action").disabled = true;
 }
 
-async function activate(){
-  await fetch("/api/activate",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({ user_id:userId, plan:"pro" })
-  });
+async function checkStatus() {
+    if (!userId) return;
 
-  loadStatus();
+    const res = await fetch("/api/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId })
+    });
+
+    const data = await res.json();
+
+    if (data.premium) {
+        document.getElementById("status").innerText = "Premium Active";
+        document.getElementById("action").innerText = "Activated";
+        document.getElementById("action").disabled = true;
+    } else {
+        document.getElementById("status").innerText = "Free Plan";
+    }
 }
 
-loadStatus();
+async function activate() {
+    if (!userId) return;
+
+    await fetch("/api/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId })
+    });
+
+    checkStatus();
+}
+
+checkStatus();
