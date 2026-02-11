@@ -1,44 +1,32 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-const userId = tg.initDataUnsafe?.user?.id;
+const userId = tg.initDataUnsafe.user?.id || Math.floor(Math.random()*100000);
 
-async function checkStatus() {
-    const res = await fetch("/api/status", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({user_id: userId})
-    });
+async function loadStatus(){
+  const res = await fetch("/api/status",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ user_id:userId })
+  });
 
-    const data = await res.json();
+  const data = await res.json();
 
-    const statusText = document.getElementById("status");
-    const dot = document.getElementById("status-dot");
-    const btn = document.getElementById("action-btn");
+  document.getElementById("plan").innerText =
+    data.active ? "🔥 Plan: PRO" : "🆓 Free Plan";
 
-    if (data.premium) {
-        statusText.innerText = "Premium Active";
-        dot.style.background = "#00ff88";
-        dot.style.boxShadow = "0 0 12px #00ff88";
-        btn.innerText = "Access Granted";
-        btn.disabled = true;
-    } else {
-        statusText.innerText = "No Active Subscription";
-        dot.style.background = "orange";
-        dot.style.boxShadow = "0 0 12px orange";
-        btn.innerText = "Activate Premium";
-        btn.disabled = false;
-    }
+  document.getElementById("expires").innerText =
+    data.active ? "Expires: "+data.expires_at : "";
 }
 
-async function activate() {
-    await fetch("/api/activate", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({user_id: userId})
-    });
+async function activate(){
+  await fetch("/api/activate",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ user_id:userId, plan:"pro" })
+  });
 
-    checkStatus();
+  loadStatus();
 }
 
-checkStatus();
+loadStatus();
