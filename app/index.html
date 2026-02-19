@@ -1,22 +1,129 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Subscribo SaaS</title>
-<link rel="stylesheet" href="/static/style.css">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Subscribo</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-
-<div class="container">
-  <div class="card">
-    <h1>✨ Subscribo</h1>
-    <p id="plan">Loading...</p>
-    <p id="expires"></p>
-    <button onclick="activate()">Activate Pro</button>
+  <div class="bg">
+    <canvas id="stars"></canvas>
+    <div class="glow g1"></div>
+    <div class="glow g2"></div>
+    <div class="glow g3"></div>
   </div>
-</div>
 
-<script src="/static/script.js"></script>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">✨</div>
+        <div class="brandText">
+          <div class="name">Subscribo</div>
+          <div class="tag">White-Label Premium Access Engine</div>
+        </div>
+      </div>
+      <button class="chip" id="envChip" title="Environment">TG</button>
+    </header>
+
+    <section class="card hero">
+      <div class="heroLeft">
+        <h1>Access Control</h1>
+        <p class="muted">
+          Manage plans, expiry and user access for Telegram Mini Apps. Works in Telegram and browser demo mode.
+        </p>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpiLabel">Plan</div>
+            <div class="kpiValue" id="planValue">—</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiLabel">Status</div>
+            <div class="kpiValue" id="statusValue">Loading…</div>
+          </div>
+          <div class="kpi">
+            <div class="kpiLabel">Expires</div>
+            <div class="kpiValue mono" id="expiresValue">—</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="activateBtn">
+            <span class="btnGlow"></span>
+            Activate PRO (30d)
+          </button>
+          <button class="btn" id="refreshBtn">Refresh</button>
+        </div>
+
+        <div class="fine muted" id="userLine"></div>
+      </div>
+
+      <div class="heroRight">
+        <div class="stack">
+          <div class="stackItem">
+            <div class="dot ok"></div>
+            <div>
+              <div class="stackTitle">Telegram-ready</div>
+              <div class="stackDesc">InitData user id, full-screen UX, haptics.</div>
+            </div>
+          </div>
+          <div class="stackItem">
+            <div class="dot ok"></div>
+            <div>
+              <div class="stackTitle">Admin Panel</div>
+              <div class="stackDesc">Search users, set plan, set expiry.</div>
+            </div>
+          </div>
+          <div class="stackItem">
+            <div class="dot"></div>
+            <div>
+              <div class="stackTitle">Payments (plug-in)</div>
+              <div class="stackDesc">Stripe / CryptoPay / TonConnect later.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="adminGate">
+          <div class="adminTitle">Admin</div>
+          <div class="adminRow">
+            <input id="adminKey" class="input" placeholder="Admin key" />
+            <button id="adminOpen" class="btn small">Open</button>
+          </div>
+          <div class="adminHint muted">For demo: opens panel inside this UI (no separate page).</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card panel" id="adminPanel" hidden>
+      <div class="panelTop">
+        <div>
+          <div class="panelTitle">Admin Panel</div>
+          <div class="muted">Search users, change plan, set expiry.</div>
+        </div>
+        <div class="panelActions">
+          <input id="search" class="input" placeholder="Search user_id…" />
+          <button id="reloadUsers" class="btn small">Reload</button>
+          <button id="closeAdmin" class="btn small ghost">Close</button>
+        </div>
+      </div>
+
+      <div class="table" id="usersTable">
+        <div class="thead">
+          <div>User</div><div>Plan</div><div>Active</div><div>Expires</div><div>Action</div>
+        </div>
+        <div class="tbody" id="usersBody"></div>
+      </div>
+    </section>
+
+    <footer class="foot muted">
+      Built as a white-label base. Replace branding, pricing, and payment provider.
+    </footer>
+  </main>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="/static/script.js"></script>
 </body>
 </html>
