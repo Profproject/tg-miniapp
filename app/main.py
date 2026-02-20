@@ -41,6 +41,7 @@ def parse_iso(s: Optional[str]) -> Optional[datetime]:
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app"), name="static")
 
+
 # ---- DB ----
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cur = conn.cursor()
@@ -151,7 +152,9 @@ def cryptopay_call(method: str, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def plan_price(plan: str) -> Dict[str, str]:
-    # поменяй под свой оффер
+    """
+    Set your real pricing here.
+    """
     plan = plan.upper()
     if plan == "PRO":
         return {"asset": "USDT", "amount": "19"}
@@ -184,21 +187,6 @@ async def status(payload: Dict[str, Any]):
 @app.get("/api/status")
 async def status_get(user_id: int):
     return db_get_user(int(user_id))
-
-
-@app.post("/api/activate_demo")
-async def activate_demo(payload: Dict[str, Any]):
-    """
-    Демо-режим (для продажи): включает план без оплаты.
-    Если не нужен — удалишь endpoint + кнопки в UI.
-    """
-    user_id = payload.get("user_id")
-    plan = (payload.get("plan") or "PRO").upper()
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id required")
-    if plan not in ("PRO", "VIP", "FREE"):
-        raise HTTPException(status_code=400, detail="bad plan")
-    return db_set_plan(int(user_id), plan, None)
 
 
 # ---- CryptoPay: create invoice ----
@@ -240,7 +228,7 @@ async def pay_create(payload: Dict[str, Any]):
     return {"ok": True, "invoice_id": invoice_id, "pay_url": pay_url, "amount": amount, "asset": asset}
 
 
-# ---- CryptoPay: check invoice (polling) ----
+# ---- CryptoPay: check invoice (polling fallback) ----
 @app.get("/api/pay/check")
 async def pay_check(invoice_id: int):
     c = conn.cursor()
@@ -273,15 +261,20 @@ async def pay_check(invoice_id: int):
     return {"ok": True, "invoice_id": invoice_id, "status": status, "user": u}
 
 
-# ---- CryptoPay: webhook ----
+# ---- CryptoPay: webhook (primary) ----
 @app.post("/api/pay/webhook")
 async def pay_webhook(request: Request):
     """
-    Надёжный вариант: берём invoice_id из тела и сверяем статус через getInvoices.
-    Заголовок x-webhook-secret проверяем только если он реально пришёл.
+    Recommended: set webhook in CryptoBot to:
+    https://YOUR_DOMAIN/api/pay/webhook
+
+    Secret check:
+    - If CryptoBot can send a secret header/value, match it to CRYPTOPAY_WEBHOOK_SECRET.
+    - Even if body format changes, we verify invoice via getInvoices.
     """
-    secret = request.headers.get("x-webhook-secret", "")
     if CRYPTOPAY_WEBHOOK_SECRET:
+        # Some setups may or may not send a header; we accept empty, but if present must match.
+        secret = (request.headers.get("x-webhook-secret") or "").strip()
         if secret and secret != CRYPTOPAY_WEBHOOK_SECRET:
             raise HTTPException(status_code=401, detail="bad webhook secret")
 
@@ -297,6 +290,7 @@ async def pay_webhook(request: Request):
     except Exception:
         return {"ok": True}
 
+    # verify + activate if paid
     try:
         await pay_check(invoice_id)
     except Exception:
@@ -305,7 +299,7 @@ async def pay_webhook(request: Request):
     return {"ok": True}
 
 
-# ---- Admin / metrics ----
+# ---- Admin ----
 def require_admin(request: Request):
     key = (request.headers.get("x-admin-key") or "").strip()
     if not ADMIN_KEY or key != ADMIN_KEY:
