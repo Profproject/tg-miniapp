@@ -1,183 +1,314 @@
-(function () {
-  const tg = window.Telegram?.WebApp;
-  if (tg) {
-    try { tg.expand(); } catch (e) {}
-    try { tg.ready(); } catch (e) {}
+const tg = window.Telegram?.WebApp;
+if (tg) { try { tg.expand(); tg.ready(); } catch(e) {} }
+
+const $ = (id) => document.getElementById(id);
+
+// ---- micro feedback ----
+let audioCtx;
+function clickSound(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "triangle";
+    o.frequency.value = 520;
+    g.gain.value = 0.03;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    setTimeout(()=>o.stop(), 40);
+  }catch(e){}
+}
+function haptic(type="light"){ try{ tg?.HapticFeedback?.impactOccurred(type); }catch(e){} }
+function tap(){ haptic("light"); clickSound(); }
+
+// ---- identity ----
+function getUserId(){
+  if (tg?.initDataUnsafe?.user?.id) return tg.initDataUnsafe.user.id;
+  let id = localStorage.getItem("demo_user_id");
+  if (!id){
+    id = String(100000000 + Math.floor(Math.random()*900000000));
+    localStorage.setItem("demo_user_id", id);
   }
+  return Number(id);
+}
 
-  const $ = (id) => document.getElementById(id);
+let state = { user_id: getUserId(), plan: "FREE", expires_at: null };
 
-  const uidEl = $("uid");
-  const planEl = $("plan");
-  const statusEl = $("status");
-  const expEl = $("expires");
-  const toastEl = $("toast");
-  const hintEl = $("hint");
+// ---- helpers ----
+function fmt(x){
+  if (!x) return "—";
+  try { return new Date(x).toISOString().replace(".000Z","Z"); } catch { return String(x); }
+}
+function allowed(need){
+  const p = (state.plan||"FREE").toUpperCase();
+  if (need === "PRO") return p === "PRO" || p === "VIP";
+  if (need === "VIP") return p === "VIP";
+  return true;
+}
+function setChip(plan){
+  const el = $("chipPlan");
+  if (!el) return;
+  el.textContent = (plan || "FREE").toUpperCase();
+  el.classList.toggle("chip--lime", el.textContent !== "FREE");
+}
 
-  const btnActivate = $("btnActivate");
-  const btnRefresh = $("btnRefresh");
+function log(msg){
+  const box = $("log");
+  if (!box) return;
+  const d = document.createElement("div");
+  d.textContent = msg;
+  box.prepend(d);
+  setTimeout(()=>d.remove(), 8000);
+}
 
-  const adminKey = $("adminKey");
-  const adminUserId = $("adminUserId");
-  const btnAdminPro = $("btnAdminPro");
-  const btnAdminFree = $("btnAdminFree");
-
-  function toast(msg) {
-    toastEl.textContent = msg || "";
+// ---- api ----
+async function api(path, body=null, method="POST", extraHeaders=null){
+  const opt = { method, headers: {} };
+  if (extraHeaders) Object.assign(opt.headers, extraHeaders);
+  if (body !== null){
+    opt.headers["Content-Type"] = "application/json";
+    opt.body = JSON.stringify(body);
   }
+  const res = await fetch(path, opt);
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`);
+  return data;
+}
 
-  function getUID() {
-    // 1) Telegram user id
-    const tgId = tg?.initDataUnsafe?.user?.id;
-    if (tgId) return String(tgId);
+// ---- render ----
+function render(){
+  $("uid").textContent = String(state.user_id);
+  $("plan").textContent = state.plan;
+  $("exp").textContent = fmt(state.expires_at);
+  $("status").textContent = state.plan === "FREE" ? "Free plan" : `${state.plan} active ✅`;
+  setChip(state.plan);
+}
 
-    // 2) Browser demo mode: ?uid=123
-    const u = new URL(window.location.href);
-    const q = u.searchParams.get("uid");
-    if (q) return String(q);
+// ---- core actions ----
+async function refresh(){
+  const data = await api("/api/status", { user_id: state.user_id });
+  state.plan = data.plan;
+  state.expires_at = data.expires_at;
+  render();
+}
 
-    return null;
-  }
+async function metrics(){
+  const m = await api("/api/metrics", null, "GET");
+  $("mTotal").textContent = m.total_users;
+  $("mPro").textContent = m.pro_users;
+  $("mVip").textContent = m.vip_users;
+}
 
-  async function api(path, payload) {
-    // Always POST (your backend endpoints are POST)
-    const res = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload || {}),
-    });
+async function demo(plan){
+  const data = await api("/api/activate_demo", { user_id: state.user_id, plan });
+  state.plan = data.plan;
+  state.expires_at = data.expires_at;
+  render();
+  await metrics();
+}
 
-    let data;
-    try { data = await res.json(); }
-    catch { data = { error: "bad_json" }; }
+async function createInvoice(plan){
+  return await api("/api/pay/create", { user_id: state.user_id, plan });
+}
+async function checkInvoice(invoice_id){
+  return await api(`/api/pay/check?invoice_id=${encodeURIComponent(invoice_id)}`, null, "GET");
+}
 
-    if (!res.ok) {
-      const msg = data?.detail || data?.error || ("HTTP " + res.status);
-      throw new Error(msg);
-    }
-    return data;
-  }
+async function pay(plan){
+  tap();
+  $("status").textContent = "Creating invoice…";
 
-  function fmtExpires(x) {
-    if (!x) return "—";
-    // Accept ISO string
-    try {
-      const d = new Date(x);
-      if (!isNaN(d.getTime())) {
-        return d.toISOString().replace(".000Z", "Z");
+  const inv = await createInvoice(plan);
+  if (!inv.pay_url) throw new Error("No pay_url returned");
+
+  $("status").textContent = "Open payment…";
+  if (tg?.openLink) tg.openLink(inv.pay_url);
+  else window.open(inv.pay_url, "_blank");
+
+  // polling: check every 2s up to 2 minutes
+  const started = Date.now();
+  while (Date.now() - started < 120000){
+    await new Promise(r => setTimeout(r, 2000));
+    try{
+      const chk = await checkInvoice(inv.invoice_id);
+      if (chk.status === "paid"){
+        state.plan = chk.user.plan;
+        state.expires_at = chk.user.expires_at;
+        render();
+        await metrics();
+        $("status").textContent = `${state.plan} active ✅`;
+        return;
       }
-    } catch (e) {}
-    return String(x);
-  }
-
-  async function refresh() {
-    const uid = getUID();
-    if (!uid) {
-      uidEl.textContent = "—";
-      planEl.textContent = "—";
-      expEl.textContent = "—";
-      statusEl.textContent = "Open from Telegram (or add ?uid=123)";
-      hintEl.style.display = "block";
-      btnActivate.disabled = true;
-      toast("No Telegram user id detected.");
-      return;
-    }
-
-    hintEl.style.display = "none";
-    uidEl.textContent = uid;
-    statusEl.textContent = "Loading…";
-    toast("");
-
-    try {
-      const data = await api("/api/status", { user_id: uid });
-      planEl.textContent = data.plan || (data.premium ? "PRO" : "FREE");
-      expEl.textContent = fmtExpires(data.expires);
-      statusEl.textContent = data.premium ? "Premium active ✅" : "Free plan";
-      btnActivate.disabled = !!data.premium;
-    } catch (e) {
-      statusEl.textContent = "API error";
-      toast("Status failed: " + e.message);
-      btnActivate.disabled = true;
+      if (chk.status === "expired"){
+        $("status").textContent = "Invoice expired";
+        return;
+      }
+      $("status").textContent = `Waiting payment… (${chk.status})`;
+    }catch(e){
+      $("status").textContent = "Checking…";
     }
   }
+  $("status").textContent = "Waiting payment… (timeout)";
+}
 
-  async function activate() {
-    const uid = getUID();
-    if (!uid) return toast("Open from Telegram or use ?uid=123");
+// refresh when user returns from payment page
+document.addEventListener("visibilitychange", ()=>{
+  if (!document.hidden) refresh().then(metrics).catch(()=>{});
+});
 
-    btnActivate.disabled = true;
-    toast("Activating…");
+// ---- Tabs ----
+document.querySelectorAll(".tab").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    tap();
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    btn.classList.add("active");
+    const v = btn.dataset.view;
+    document.querySelectorAll(".view").forEach(s=>s.classList.remove("active"));
+    $(`view-${v}`).classList.add("active");
+  });
+});
 
-    try {
-      const data = await api("/api/activate", { user_id: uid });
-      toast(data?.success ? "Activated ✅" : "Done");
-      await refresh();
-    } catch (e) {
-      toast("Activate failed: " + e.message);
-      btnActivate.disabled = false;
-    }
+// ---- Buttons ----
+$("btnRefresh").addEventListener("click", async ()=>{ tap(); await refresh(); await metrics(); });
+
+$("btnBuyPro").addEventListener("click", async ()=>{
+  try { await pay("PRO"); } catch(e){ $("status").textContent="Pay error"; }
+});
+
+$("btnPayPro2").addEventListener("click", async ()=>{
+  try { await pay("PRO"); } catch(e){ $("status").textContent="Pay error"; }
+});
+
+$("btnPayVip").addEventListener("click", async ()=>{
+  try { await pay("VIP"); } catch(e){ $("status").textContent="Pay error"; }
+});
+
+$("btnPayPro3").addEventListener("click", async ()=>{
+  try { await pay("PRO"); } catch(e){ $("status").textContent="Pay error"; }
+});
+
+$("btnPayVip2").addEventListener("click", async ()=>{
+  try { await pay("VIP"); } catch(e){ $("status").textContent="Pay error"; }
+});
+
+$("btnFree").addEventListener("click", async ()=>{ tap(); await demo("FREE"); });
+$("btnFree2").addEventListener("click", async ()=>{ tap(); await demo("FREE"); });
+
+$("btnDemoPro").addEventListener("click", async ()=>{ tap(); await demo("PRO"); });
+$("btnDemoVip").addEventListener("click", async ()=>{ tap(); await demo("VIP"); });
+
+// ---- Locked features modal ----
+const modal = $("modal");
+const mt = $("mt");
+const mx = $("mx");
+const mClose = $("mClose");
+const mUpgrade = $("mUpgrade");
+
+function openModal(title, text){
+  mt.textContent = title;
+  mx.textContent = text;
+  modal.classList.add("show");
+}
+function closeModal(){ modal.classList.remove("show"); }
+
+mClose.addEventListener("click", ()=>{ tap(); closeModal(); });
+modal.addEventListener("click", (e)=>{ if (e.target === modal) closeModal(); });
+mUpgrade.addEventListener("click", async ()=>{
+  tap();
+  closeModal();
+  try { await pay("PRO"); } catch(e){ $("status").textContent="Pay error"; }
+});
+
+document.querySelectorAll(".feat").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    tap();
+    const need = btn.dataset.need;
+    if (allowed(need)) openModal("Unlocked ✅", "Feature доступна на твоем плане.");
+    else openModal("Locked 🔒", `Нужен ${need}. Оплати чтобы открыть.`);
+  });
+});
+
+// ---- Admin (x-admin-key header) ----
+async function adminSet(plan){
+  tap();
+  const admin_key = $("adminKey").value.trim();
+  const user_id = Number($("adminUser").value.trim());
+  const days = $("adminDays").value.trim();
+
+  if (!admin_key) return log("Admin key required");
+  if (!user_id) return log("User id required");
+
+  const payload = { user_id, plan };
+  if (days) payload.days = Number(days);
+
+  try{
+    const r = await api("/api/admin/set_plan", payload, "POST", { "x-admin-key": admin_key });
+    log(`OK: ${r.user_id} -> ${r.plan} exp=${fmt(r.expires_at)}`);
+    await metrics();
+  }catch(e){
+    log("Admin error: " + e.message);
   }
+}
 
-  async function adminSet(mode) {
-    const key = adminKey.value.trim();
-    const uid = adminUserId.value.trim();
-    if (!key || !uid) return toast("Admin: enter key + user id");
+$("aFree").addEventListener("click", ()=>adminSet("FREE"));
+$("aPro").addEventListener("click", ()=>adminSet("PRO"));
+$("aVip").addEventListener("click", ()=>adminSet("VIP"));
 
-    toast("Admin request…");
-    try {
-      const data = await api("/api/admin/set", {
-        key,
-        user_id: uid,
-        mode, // "pro" | "free"
-      });
-      toast(data?.ok ? "Admin updated ✅" : "Admin done");
-      await refresh();
-    } catch (e) {
-      toast("Admin failed: " + e.message);
-    }
+// ---- 3D tilt ----
+function tilt(node){
+  let rect=null, max=10;
+  node.addEventListener("mousemove",(e)=>{
+    rect = rect || node.getBoundingClientRect();
+    const x=(e.clientX-rect.left)/rect.width;
+    const y=(e.clientY-rect.top)/rect.height;
+    const rx=(max/2 - y*max).toFixed(2);
+    const ry=(x*max - max/2).toFixed(2);
+    node.style.transform=`perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+  });
+  node.addEventListener("mouseleave",()=>{
+    rect=null;
+    node.style.transform="perspective(900px) rotateX(0deg) rotateY(0deg)";
+  });
+}
+document.querySelectorAll(".tilt").forEach(tilt);
+
+// ---- Canvas particles ----
+const canvas = document.getElementById("fx");
+const ctx = canvas.getContext("2d");
+let W,H,dots;
+
+function resize(){
+  W = canvas.width = innerWidth * devicePixelRatio;
+  H = canvas.height = innerHeight * devicePixelRatio;
+  canvas.style.width = innerWidth+"px";
+  canvas.style.height = innerHeight+"px";
+  dots = Array.from({length:120}, ()=>({
+    x:Math.random()*W, y:Math.random()*H,
+    r:(Math.random()*1.6+0.2)*devicePixelRatio,
+    vx:(Math.random()*0.35+0.05)*devicePixelRatio,
+    vy:(Math.random()*0.20+0.02)*devicePixelRatio,
+    a:Math.random()*0.6+0.15
+  }));
+}
+addEventListener("resize", resize);
+resize();
+
+function tick(){
+  ctx.clearRect(0,0,W,H);
+  for (const d of dots){
+    d.x += d.vx; d.y += d.vy;
+    if (d.x > W+20) d.x = -20;
+    if (d.y > H+20) d.y = -20;
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(220,255,235,${d.a})`;
+    ctx.arc(d.x,d.y,d.r,0,Math.PI*2);
+    ctx.fill();
   }
+  requestAnimationFrame(tick);
+}
+tick();
 
-  // Click handlers (ensure buttons are actually clickable)
-  btnRefresh.addEventListener("click", refresh);
-  btnActivate.addEventListener("click", activate);
-  btnAdminPro.addEventListener("click", () => adminSet("pro"));
-  btnAdminFree.addEventListener("click", () => adminSet("free"));
-
-  // Stars background
-  const canvas = document.getElementById("stars");
-  const ctx = canvas.getContext("2d");
-  let W = 0, H = 0, stars = [];
-
-  function resize() {
-    W = canvas.width = window.innerWidth * devicePixelRatio;
-    H = canvas.height = window.innerHeight * devicePixelRatio;
-    stars = Array.from({ length: 110 }, () => ({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      r: (Math.random() * 1.6 + 0.4) * devicePixelRatio,
-      a: Math.random() * 0.8 + 0.2,
-      s: (Math.random() * 0.25 + 0.05) * devicePixelRatio,
-    }));
-  }
-
-  function tick() {
-    ctx.clearRect(0, 0, W, H);
-    for (const st of stars) {
-      st.y += st.s;
-      if (st.y > H) st.y = 0;
-      ctx.globalAlpha = st.a;
-      ctx.beginPath();
-      ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
-    }
-    requestAnimationFrame(tick);
-  }
-
-  window.addEventListener("resize", resize);
-  resize();
-  tick();
-
-  // Start
-  refresh();
-})();
+// ---- init ----
+$("uid").textContent = String(state.user_id);
+render();
+refresh().then(metrics);
