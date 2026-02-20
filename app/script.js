@@ -3,7 +3,6 @@ if (tg) { try { tg.expand(); tg.ready(); } catch(e) {} }
 
 const $ = (id) => document.getElementById(id);
 
-// ---- micro feedback ----
 let audioCtx;
 function clickSound(){
   try{
@@ -12,7 +11,7 @@ function clickSound(){
     const g = audioCtx.createGain();
     o.type = "triangle";
     o.frequency.value = 520;
-    g.gain.value = 0.03;
+    g.gain.value = 0.028;
     o.connect(g); g.connect(audioCtx.destination);
     o.start();
     setTimeout(()=>o.stop(), 40);
@@ -21,7 +20,6 @@ function clickSound(){
 function haptic(type="light"){ try{ tg?.HapticFeedback?.impactOccurred(type); }catch(e){} }
 function tap(){ haptic("light"); clickSound(); }
 
-// ---- identity ----
 function getUserId(){
   if (tg?.initDataUnsafe?.user?.id) return tg.initDataUnsafe.user.id;
   let id = localStorage.getItem("demo_user_id");
@@ -34,7 +32,15 @@ function getUserId(){
 
 let state = { user_id: getUserId(), plan: "FREE", expires_at: null };
 
-// ---- helpers ----
+function log(msg){
+  const box = $("log");
+  if (!box) return;
+  const d = document.createElement("div");
+  d.textContent = msg;
+  box.prepend(d);
+  setTimeout(()=>d.remove(), 8000);
+}
+
 function fmt(x){
   if (!x) return "—";
   try { return new Date(x).toISOString().replace(".000Z","Z"); } catch { return String(x); }
@@ -45,23 +51,7 @@ function allowed(need){
   if (need === "VIP") return p === "VIP";
   return true;
 }
-function setChip(plan){
-  const el = $("chipPlan");
-  if (!el) return;
-  el.textContent = (plan || "FREE").toUpperCase();
-  el.classList.toggle("chip--lime", el.textContent !== "FREE");
-}
 
-function log(msg){
-  const box = $("log");
-  if (!box) return;
-  const d = document.createElement("div");
-  d.textContent = msg;
-  box.prepend(d);
-  setTimeout(()=>d.remove(), 8000);
-}
-
-// ---- api ----
 async function api(path, body=null, method="POST", extraHeaders=null){
   const opt = { method, headers: {} };
   if (extraHeaders) Object.assign(opt.headers, extraHeaders);
@@ -75,16 +65,13 @@ async function api(path, body=null, method="POST", extraHeaders=null){
   return data;
 }
 
-// ---- render ----
 function render(){
   $("uid").textContent = String(state.user_id);
   $("plan").textContent = state.plan;
   $("exp").textContent = fmt(state.expires_at);
   $("status").textContent = state.plan === "FREE" ? "Free plan" : `${state.plan} active ✅`;
-  setChip(state.plan);
 }
 
-// ---- core actions ----
 async function refresh(){
   const data = await api("/api/status", { user_id: state.user_id });
   state.plan = data.plan;
@@ -99,17 +86,10 @@ async function metrics(){
   $("mVip").textContent = m.vip_users;
 }
 
-async function demo(plan){
-  const data = await api("/api/activate_demo", { user_id: state.user_id, plan });
-  state.plan = data.plan;
-  state.expires_at = data.expires_at;
-  render();
-  await metrics();
-}
-
 async function createInvoice(plan){
   return await api("/api/pay/create", { user_id: state.user_id, plan });
 }
+
 async function checkInvoice(invoice_id){
   return await api(`/api/pay/check?invoice_id=${encodeURIComponent(invoice_id)}`, null, "GET");
 }
@@ -121,11 +101,11 @@ async function pay(plan){
   const inv = await createInvoice(plan);
   if (!inv.pay_url) throw new Error("No pay_url returned");
 
-  $("status").textContent = "Open payment…";
+  $("status").textContent = "Opening payment…";
   if (tg?.openLink) tg.openLink(inv.pay_url);
   else window.open(inv.pay_url, "_blank");
 
-  // polling: check every 2s up to 2 minutes
+  // polling fallback: check every 2s up to 2 minutes
   const started = Date.now();
   while (Date.now() - started < 120000){
     await new Promise(r => setTimeout(r, 2000));
@@ -151,12 +131,12 @@ async function pay(plan){
   $("status").textContent = "Waiting payment… (timeout)";
 }
 
-// refresh when user returns from payment page
+// refresh after returning to app
 document.addEventListener("visibilitychange", ()=>{
   if (!document.hidden) refresh().then(metrics).catch(()=>{});
 });
 
-// ---- Tabs ----
+// Tabs
 document.querySelectorAll(".tab").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     tap();
@@ -168,36 +148,42 @@ document.querySelectorAll(".tab").forEach(btn=>{
   });
 });
 
-// ---- Buttons ----
+// Buttons
 $("btnRefresh").addEventListener("click", async ()=>{ tap(); await refresh(); await metrics(); });
 
-$("btnBuyPro").addEventListener("click", async ()=>{
-  try { await pay("PRO"); } catch(e){ $("status").textContent="Pay error"; }
+$("btnPayPro").addEventListener("click", async ()=>{
+  try { await pay("PRO"); } catch(e){ $("status").textContent = "Payment error"; }
 });
-
 $("btnPayPro2").addEventListener("click", async ()=>{
-  try { await pay("PRO"); } catch(e){ $("status").textContent="Pay error"; }
+  try { await pay("PRO"); } catch(e){ $("status").textContent = "Payment error"; }
 });
-
 $("btnPayVip").addEventListener("click", async ()=>{
-  try { await pay("VIP"); } catch(e){ $("status").textContent="Pay error"; }
+  try { await pay("VIP"); } catch(e){ $("status").textContent = "Payment error"; }
 });
-
-$("btnPayPro3").addEventListener("click", async ()=>{
-  try { await pay("PRO"); } catch(e){ $("status").textContent="Pay error"; }
-});
-
 $("btnPayVip2").addEventListener("click", async ()=>{
-  try { await pay("VIP"); } catch(e){ $("status").textContent="Pay error"; }
+  try { await pay("VIP"); } catch(e){ $("status").textContent = "Payment error"; }
 });
 
-$("btnFree").addEventListener("click", async ()=>{ tap(); await demo("FREE"); });
-$("btnFree2").addEventListener("click", async ()=>{ tap(); await demo("FREE"); });
+$("btnUseFree").addEventListener("click", async ()=>{
+  tap();
+  // FREE is default; just refresh + show
+  await refresh().catch(()=>{});
+  $("status").textContent = "Free plan";
+});
+$("btnFree").addEventListener("click", async ()=>{
+  tap();
+  await refresh().catch(()=>{});
+  $("status").textContent = "Free plan";
+});
 
-$("btnDemoPro").addEventListener("click", async ()=>{ tap(); await demo("PRO"); });
-$("btnDemoVip").addEventListener("click", async ()=>{ tap(); await demo("VIP"); });
+$("btnOpenDocs").addEventListener("click", ()=>{
+  tap();
+  const url = location.origin + "/docs";
+  if (tg?.openLink) tg.openLink(url);
+  else window.open(url, "_blank");
+});
 
-// ---- Locked features modal ----
+// Locked features modal
 const modal = $("modal");
 const mt = $("mt");
 const mx = $("mx");
@@ -216,35 +202,43 @@ modal.addEventListener("click", (e)=>{ if (e.target === modal) closeModal(); });
 mUpgrade.addEventListener("click", async ()=>{
   tap();
   closeModal();
-  try { await pay("PRO"); } catch(e){ $("status").textContent="Pay error"; }
+  try { await pay("PRO"); } catch(e){ $("status").textContent = "Payment error"; }
 });
 
 document.querySelectorAll(".feat").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     tap();
     const need = btn.dataset.need;
-    if (allowed(need)) openModal("Unlocked ✅", "Feature доступна на твоем плане.");
-    else openModal("Locked 🔒", `Нужен ${need}. Оплати чтобы открыть.`);
+    if (allowed(need)) openModal("Unlocked ✅", "This feature is available on your plan.");
+    else openModal("Locked 🔒", `Requires ${need}. Upgrade to unlock.`);
   });
 });
 
-// ---- Admin (x-admin-key header) ----
+// Admin (header-based)
 async function adminSet(plan){
   tap();
-  const admin_key = $("adminKey").value.trim();
+  const adminKey = $("adminKey").value.trim();
   const user_id = Number($("adminUser").value.trim());
-  const days = $("adminDays").value.trim();
+  const daysRaw = $("adminDays").value.trim();
 
-  if (!admin_key) return log("Admin key required");
+  if (!adminKey) return log("Admin key required");
   if (!user_id) return log("User id required");
 
   const payload = { user_id, plan };
-  if (days) payload.days = Number(days);
+  if (daysRaw) payload.days = Number(daysRaw);
 
   try{
-    const r = await api("/api/admin/set_plan", payload, "POST", { "x-admin-key": admin_key });
+    const r = await api(
+      "/api/admin/set_plan",
+      payload,
+      "POST",
+      { "x-admin-key": adminKey }
+    );
     log(`OK: ${r.user_id} -> ${r.plan} exp=${fmt(r.expires_at)}`);
     await metrics();
+    if (user_id === state.user_id){
+      state.plan = r.plan; state.expires_at = r.expires_at; render();
+    }
   }catch(e){
     log("Admin error: " + e.message);
   }
@@ -254,7 +248,7 @@ $("aFree").addEventListener("click", ()=>adminSet("FREE"));
 $("aPro").addEventListener("click", ()=>adminSet("PRO"));
 $("aVip").addEventListener("click", ()=>adminSet("VIP"));
 
-// ---- 3D tilt ----
+// 3D tilt
 function tilt(node){
   let rect=null, max=10;
   node.addEventListener("mousemove",(e)=>{
@@ -272,7 +266,7 @@ function tilt(node){
 }
 document.querySelectorAll(".tilt").forEach(tilt);
 
-// ---- Canvas particles ----
+// Canvas particles
 const canvas = document.getElementById("fx");
 const ctx = canvas.getContext("2d");
 let W,H,dots;
@@ -282,12 +276,12 @@ function resize(){
   H = canvas.height = innerHeight * devicePixelRatio;
   canvas.style.width = innerWidth+"px";
   canvas.style.height = innerHeight+"px";
-  dots = Array.from({length:120}, ()=>({
+  dots = Array.from({length:140}, ()=>({
     x:Math.random()*W, y:Math.random()*H,
-    r:(Math.random()*1.6+0.2)*devicePixelRatio,
+    r:(Math.random()*1.8+0.2)*devicePixelRatio,
     vx:(Math.random()*0.35+0.05)*devicePixelRatio,
-    vy:(Math.random()*0.20+0.02)*devicePixelRatio,
-    a:Math.random()*0.6+0.15
+    vy:(Math.random()*0.22+0.02)*devicePixelRatio,
+    a:Math.random()*0.55+0.12
   }));
 }
 addEventListener("resize", resize);
@@ -299,16 +293,22 @@ function tick(){
     d.x += d.vx; d.y += d.vy;
     if (d.x > W+20) d.x = -20;
     if (d.y > H+20) d.y = -20;
+
+    const g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r*10);
+    g.addColorStop(0, `rgba(168,85,247,${d.a})`);
+    g.addColorStop(0.5, `rgba(163,255,18,${d.a*0.35})`);
+    g.addColorStop(1, `rgba(0,0,0,0)`);
+
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.fillStyle = `rgba(220,255,235,${d.a})`;
-    ctx.arc(d.x,d.y,d.r,0,Math.PI*2);
+    ctx.arc(d.x,d.y,d.r*10,0,Math.PI*2);
     ctx.fill();
   }
   requestAnimationFrame(tick);
 }
 tick();
 
-// ---- init ----
+// init
 $("uid").textContent = String(state.user_id);
 render();
-refresh().then(metrics);
+refresh().then(metrics).catch(()=>{});
