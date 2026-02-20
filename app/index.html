@@ -3,101 +3,53 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Subscribo</title>
-
+  <title>Subscribo Engine</title>
   <link rel="stylesheet" href="/static/style.css?v=2" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
-
 <body>
-  <!-- Ambient layers -->
-  <div class="bg">
-    <div class="bg__grid"></div>
-    <div class="bg__glow bg__glow--a"></div>
-    <div class="bg__glow bg__glow--b"></div>
-    <div class="bg__glow bg__glow--c"></div>
-    <div class="bg__noise"></div>
-  </div>
-
   <canvas id="fx"></canvas>
 
   <div class="app">
-
-    <!-- Top -->
     <header class="top glass">
       <div class="brand">
-        <div class="mark" aria-hidden="true">
-          <div class="mark__core"></div>
-          <div class="mark__ring"></div>
-          <div class="mark__spark"></div>
+        <div class="logo">
+          <span class="orb"></span>
         </div>
-
         <div class="bt">
-          <div class="name">
-            <span class="name__a">Subscribo</span>
-            <span class="name__b">Engine</span>
-          </div>
-          <div class="tag">White-Label Telegram Subscription & Access Control</div>
+          <div class="name">Subscribo <span class="chip">Engine</span></div>
+          <div class="tag">White-label subscriptions & access control for Telegram</div>
         </div>
       </div>
 
-      <nav class="tabs" aria-label="Navigation">
-        <button class="tab active" data-view="dash">
-          <span class="tab__ic">◆</span><span>Dashboard</span>
-        </button>
-        <button class="tab" data-view="features">
-          <span class="tab__ic">◈</span><span>Features</span>
-        </button>
-        <button class="tab" data-view="pricing">
-          <span class="tab__ic">▣</span><span>Pricing</span>
-        </button>
-        <button class="tab" data-view="admin">
-          <span class="tab__ic">⬡</span><span>Admin</span>
-        </button>
+      <nav class="tabs">
+        <button class="tab active" data-view="dash">Dashboard</button>
+        <button class="tab" data-view="features">Features</button>
+        <button class="tab" data-view="pricing">Pricing</button>
+        <button class="tab" data-view="admin">Admin</button>
       </nav>
     </header>
 
-    <!-- Content -->
     <main class="content glass">
       <!-- DASH -->
       <section class="view active" id="view-dash">
-        <div class="hero">
-          <div class="hero__title">
-            <div class="pill">
-              <span class="pill__dot"></span>
-              <span class="pill__text">Live demo • CryptoPay ready</span>
-            </div>
-            <h1 class="h1">
-              Neon-grade subscription gate<br />
-              for Telegram channels & bots
-            </h1>
-            <p class="sub">
+        <div class="hero card tilt">
+          <div class="heroTop">
+            <div class="pill"><span class="dot"></span> Live • CryptoPay ready</div>
+            <div class="heroTitle">Neon-grade subscription gate for Telegram channels & bots</div>
+            <div class="heroSub">
               Create invoices, auto-activate plans, and manage access with a clean admin panel.
               Built to be sold as a white-label asset.
-            </p>
-          </div>
-
-          <div class="hero__cta">
-            <button class="btn primary btn--xl" id="btnBuyPro">
-              <span class="btn__shine"></span>
-              <span class="btn__txt">Pay PRO</span>
-              <span class="btn__meta">instant unlock</span>
-            </button>
-            <button class="btn btn--xl" id="btnRefresh">
-              <span class="btn__txt">Refresh</span>
-              <span class="btn__meta">sync status</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="grid">
-          <!-- Access card -->
-          <div class="card card--deep tilt">
-            <div class="card__top">
-              <div class="ct">Your Access</div>
-              <div class="chip" id="chipPlan">FREE</div>
             </div>
 
+            <div class="row">
+              <button class="btn primary" id="btnPayPro">Pay PRO</button>
+              <button class="btn" id="btnRefresh">Refresh</button>
+            </div>
+          </div>
+
+          <div class="access card2">
+            <div class="ct">Your Access</div>
             <div class="kv">
               <div class="k">User</div><div class="v mono" id="uid">—</div>
               <div class="k">Plan</div><div class="v" id="plan">—</div>
@@ -106,30 +58,19 @@
             </div>
 
             <div class="row">
-              <button class="btn primary" id="btnPayPro2">
-                <span class="btn__shine"></span>
-                <span class="btn__txt">Pay PRO</span>
-              </button>
-              <button class="btn" id="btnPayVip">
-                <span class="btn__txt">Pay VIP</span>
-              </button>
-              <button class="btn" id="btnFree">
-                <span class="btn__txt">Use FREE</span>
-              </button>
+              <button class="btn" id="btnPayVip">Pay VIP</button>
+              <button class="btn ghost" id="btnUseFree">Use FREE</button>
             </div>
 
-            <div class="hint">
-              PRO/VIP создаёт инвойс CryptoPay и открывает оплату. После оплаты план активируется автоматически.
+            <div class="fine">
+              PRO/VIP creates a CryptoPay invoice and opens payment. After payment, the plan activates automatically.
             </div>
           </div>
+        </div>
 
-          <!-- Metrics card -->
-          <div class="card card--deep tilt">
-            <div class="card__top">
-              <div class="ct">Live Metrics</div>
-              <div class="chip chip--lime">Realtime</div>
-            </div>
-
+        <div class="grid">
+          <div class="card tilt">
+            <div class="ct">Live Metrics</div>
             <div class="metrics">
               <div class="m">
                 <div class="ml">Total users</div>
@@ -145,13 +86,27 @@
               </div>
             </div>
 
-            <div class="row">
-              <button class="btn" id="btnDemoPro"><span class="btn__txt">Demo PRO</span></button>
-              <button class="btn" id="btnDemoVip"><span class="btn__txt">Demo VIP</span></button>
+            <div class="fine">
+              Metrics are server-side counters (SQLite). Good enough for a starter asset; can be swapped to Postgres.
+            </div>
+          </div>
+
+          <div class="card tilt">
+            <div class="ct">Status</div>
+            <div class="statusBox">
+              <div class="sbTitle">Payment & activation</div>
+              <div class="sbText" id="sbText">
+                Webhook activates instantly. Polling fallback is used if needed.
+              </div>
+              <div class="sbHint mono" id="sbHint">/api/health</div>
             </div>
 
-            <div class="hint">
-              Demo кнопки включают план без оплаты — удобно показать “как будет после покупки”.
+            <div class="row">
+              <button class="btn" id="btnOpenDocs">Open API Docs</button>
+            </div>
+
+            <div class="fine">
+              Tip: open <span class="mono">/docs</span> to test endpoints quickly.
             </div>
           </div>
         </div>
@@ -159,53 +114,41 @@
 
       <!-- FEATURES -->
       <section class="view" id="view-features">
-        <div class="card wide tilt card--deep">
-          <div class="ct">Locked Features Demo</div>
-          <div class="hint">Нажимай — без PRO/VIP будет “Locked”, с PRO/VIP — “Unlocked”.</div>
+        <div class="card wide tilt">
+          <div class="ct">Feature Matrix</div>
+          <div class="hint">Cards are locked/unlocked depending on your plan.</div>
 
           <div class="fgrid">
             <button class="feat" data-need="PRO">
-              <div class="ftop">
-                <span class="badge">PRO</span>
-                <span class="fname">Access Rules</span>
-              </div>
+              <div class="ftop"><span class="badge">PRO</span><span class="fname">Access Rules</span></div>
               <div class="fdesc">Auto-grant/revoke based on plan & expiry</div>
             </button>
 
             <button class="feat" data-need="PRO">
-              <div class="ftop">
-                <span class="badge">PRO</span>
-                <span class="fname">Analytics</span>
-              </div>
+              <div class="ftop"><span class="badge">PRO</span><span class="fname">Analytics</span></div>
               <div class="fdesc">Cohorts, conversion, simple funnel</div>
             </button>
 
             <button class="feat" data-need="VIP">
-              <div class="ftop">
-                <span class="badge vip">VIP</span>
-                <span class="fname">Multi-Workspace</span>
-              </div>
+              <div class="ftop"><span class="badge vip">VIP</span><span class="fname">Multi-Workspace</span></div>
               <div class="fdesc">White-label for multiple channel owners</div>
             </button>
 
             <button class="feat" data-need="VIP">
-              <div class="ftop">
-                <span class="badge vip">VIP</span>
-                <span class="fname">API & Webhooks</span>
-              </div>
+              <div class="ftop"><span class="badge vip">VIP</span><span class="fname">API & Webhooks</span></div>
               <div class="fdesc">Integrate with bots / CRM / external tools</div>
             </button>
           </div>
 
-          <div class="hint" style="margin-top:14px">
-            Это demo-витрина для покупателя. Реальные “премиум-фичи” можно добавлять поверх, не ломая основу оплаты.
+          <div class="fine">
+            This is a productized demo UI. Real “premium features” can be built on top as add-ons.
           </div>
         </div>
       </section>
 
       <!-- PRICING -->
       <section class="view" id="view-pricing">
-        <div class="card wide tilt card--deep">
+        <div class="card wide tilt">
           <div class="ct">Pricing</div>
 
           <div class="pgrid">
@@ -214,10 +157,10 @@
               <div class="pp">$0</div>
               <ul>
                 <li>Basic gate</li>
-                <li>Locked features demo</li>
-                <li>No automation</li>
+                <li>Locked feature view</li>
+                <li>No automations</li>
               </ul>
-              <button class="btn" id="btnFree2"><span class="btn__txt">Use FREE</span></button>
+              <button class="btn ghost" id="btnFree">Use FREE</button>
             </div>
 
             <div class="pc glow">
@@ -225,13 +168,10 @@
               <div class="pp">$19</div>
               <ul>
                 <li>Unlock PRO features</li>
-                <li>Automation demo</li>
+                <li>Automations</li>
                 <li>Basic metrics</li>
               </ul>
-              <button class="btn primary" id="btnPayPro3">
-                <span class="btn__shine"></span>
-                <span class="btn__txt">Pay PRO</span>
-              </button>
+              <button class="btn primary" id="btnPayPro2">Pay PRO</button>
             </div>
 
             <div class="pc">
@@ -242,54 +182,45 @@
                 <li>Advanced controls</li>
                 <li>Integrations</li>
               </ul>
-              <button class="btn primary" id="btnPayVip2">
-                <span class="btn__shine"></span>
-                <span class="btn__txt">Pay VIP</span>
-              </button>
+              <button class="btn primary" id="btnPayVip2">Pay VIP</button>
             </div>
           </div>
 
-          <div class="hint" style="margin-top:14px">
-            Цены — демо. Меняются в <span class="mono">plan_price()</span> в <span class="mono">main.py</span>.
+          <div class="fine">
+            Prices are configured in <span class="mono">plan_price()</span> inside <span class="mono">app/main.py</span>.
           </div>
         </div>
       </section>
 
       <!-- ADMIN -->
       <section class="view" id="view-admin">
-        <div class="card wide tilt card--deep">
+        <div class="card wide tilt">
           <div class="ct">Admin Panel</div>
           <div class="hint">
-            Admin key хранится в Render ENV: <span class="mono">ADMIN_KEY</span>.
-            В запросах он идёт заголовком <span class="mono">x-admin-key</span>.
+            Admin key is stored in Render ENV (<span class="mono">ADMIN_KEY</span>). This UI sends it as header <span class="mono">x-admin-key</span>.
           </div>
 
           <div class="agrid">
             <input class="input" id="adminKey" placeholder="Admin key" />
             <input class="input" id="adminUser" placeholder="User id" />
             <input class="input" id="adminDays" placeholder="Days (optional)" />
-            <button class="btn" id="aFree"><span class="btn__txt">Set FREE</span></button>
-            <button class="btn primary" id="aPro"><span class="btn__shine"></span><span class="btn__txt">Set PRO</span></button>
-            <button class="btn primary" id="aVip"><span class="btn__shine"></span><span class="btn__txt">Set VIP</span></button>
+            <button class="btn ghost" id="aFree">Set FREE</button>
+            <button class="btn primary" id="aPro">Set PRO</button>
+            <button class="btn primary" id="aVip">Set VIP</button>
           </div>
 
           <div class="log" id="log"></div>
         </div>
       </section>
-
     </main>
 
-    <!-- Modal -->
     <div class="modal" id="modal">
       <div class="mcard glass tilt">
         <div class="mt" id="mt">Title</div>
         <div class="mx" id="mx">Text</div>
         <div class="row">
-          <button class="btn primary" id="mUpgrade">
-            <span class="btn__shine"></span>
-            <span class="btn__txt">Pay PRO</span>
-          </button>
-          <button class="btn" id="mClose"><span class="btn__txt">Close</span></button>
+          <button class="btn primary" id="mUpgrade">Pay PRO</button>
+          <button class="btn ghost" id="mClose">Close</button>
         </div>
       </div>
     </div>
